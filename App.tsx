@@ -71,7 +71,6 @@ const App: React.FC = () => {
   }, [config.startDate, config.endDate, config.partySize]);
 
   const testEmailConfig = async () => {
-    const originalText = "Test Email";
     // Simple feedback mechanism
     try {
        const res = await fetch('/api/test-email');

@@ -34,11 +34,8 @@ const PREWARM_CONFIG = {
 
 // --- EMAIL CONFIGURATION ---
 const TARGET_EMAIL = 'hahardier@gmail.com';
-
-// Credentials provided by user. 
-// NOTE: In production, it is safer to use process.env.EMAIL_USER and process.env.EMAIL_PASS
-const EMAIL_USER = process.env.EMAIL_USER || 'ethanlinzilllow@gmail.com';
-const EMAIL_PASS = process.env.EMAIL_PASS || 'yoel jnqz lbcu pdcb';
+const EMAIL_USER = 'ethanlinzilllow@gmail.com';
+const EMAIL_PASS = 'yoel jnqz lbcu pdcb';
 
 // Optional: Custom SMTP settings (e.g. for Outlook, Yahoo, etc.)
 const SMTP_HOST = process.env.SMTP_HOST;
