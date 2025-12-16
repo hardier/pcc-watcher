@@ -4,7 +4,7 @@ import { checkDateAvailability } from './services/scraperService';
 import { requestNotificationPermission, sendNotification } from './services/notificationService';
 import { DEFAULT_CONFIG } from './constants';
 import StatusCard from './components/StatusCard';
-import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon, EnvelopeIcon } from '@heroicons/react/24/solid';
 
 const App: React.FC = () => {
   // Config State
@@ -69,6 +69,22 @@ const App: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
   }, [config.startDate, config.endDate, config.partySize]);
+
+  const testEmailConfig = async () => {
+    const originalText = "Test Email";
+    // Simple feedback mechanism
+    try {
+       const res = await fetch('/api/test-email');
+       const data = await res.json();
+       if (res.ok) {
+         alert("✅ Success: " + data.message);
+       } else {
+         alert("❌ Error: " + (data.error || "Failed to send email. Check server console."));
+       }
+    } catch (e) {
+      alert("❌ Network Error: Could not reach server to test email.");
+    }
+  };
 
   // --- Effect: Auto-Fetch on Mount or Config Change ---
   useEffect(() => {
@@ -192,13 +208,24 @@ const App: React.FC = () => {
                <Cog6ToothIcon className="w-3 h-3"/>
                <span>Server automatically refreshes status every 5 minutes.</span>
              </div>
-             <button 
-                onClick={() => runCheckCycle(false)} 
-                className="flex items-center gap-1 hover:text-teal-600 transition-colors"
-             >
-                <ArrowPathIcon className="w-3 h-3" />
-                <span>Force Refresh Now</span>
-             </button>
+             
+             <div className="flex space-x-4">
+                <button 
+                  onClick={testEmailConfig}
+                  className="flex items-center gap-1 hover:text-teal-600 transition-colors"
+                  title="Send a test email to verify credentials"
+                >
+                  <EnvelopeIcon className="w-3 h-3" />
+                  <span>Test Email</span>
+                </button>
+                <button 
+                    onClick={() => runCheckCycle(false)} 
+                    className="flex items-center gap-1 hover:text-teal-600 transition-colors"
+                >
+                    <ArrowPathIcon className="w-3 h-3" />
+                    <span>Force Refresh Now</span>
+                </button>
+             </div>
           </div>
         </div>
 

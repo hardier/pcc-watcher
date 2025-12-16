@@ -3,6 +3,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import nodemailer from 'nodemailer';
 
 // Fix for __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -31,8 +32,91 @@ const PREWARM_CONFIG = {
   PARTY_SIZE: 6
 };
 
+// --- EMAIL CONFIGURATION ---
+const TARGET_EMAIL = 'hahardier@gmail.com';
+
+// Credentials provided by user. 
+// NOTE: In production, it is safer to use process.env.EMAIL_USER and process.env.EMAIL_PASS
+const EMAIL_USER = process.env.EMAIL_USER || 'ethanlinzilllow@gmail.com';
+const EMAIL_PASS = process.env.EMAIL_PASS || 'yoel jnqz lbcu pdcb';
+
+// Optional: Custom SMTP settings (e.g. for Outlook, Yahoo, etc.)
+const SMTP_HOST = process.env.SMTP_HOST;
+const SMTP_PORT = process.env.SMTP_PORT;
+
+let transporter = null;
+
+if (EMAIL_USER && EMAIL_PASS) {
+  let transportConfig;
+
+  if (SMTP_HOST) {
+    // Custom SMTP Configuration
+    transportConfig = {
+      host: SMTP_HOST,
+      port: Number(SMTP_PORT) || 587,
+      secure: Number(SMTP_PORT) === 465, // true for 465, false for other ports
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    };
+    console.log(`[EMAIL] Configuring custom SMTP transport (${SMTP_HOST})...`);
+  } else {
+    // Default to Gmail Service
+    transportConfig = {
+      service: 'gmail',
+      auth: {
+        user: EMAIL_USER,
+        pass: EMAIL_PASS,
+      },
+    };
+    console.log(`[EMAIL] Configuring Gmail transport for ${EMAIL_USER}...`);
+  }
+
+  transporter = nodemailer.createTransport(transportConfig);
+  
+  // Verify connection
+  transporter.verify(function (error, success) {
+    if (error) {
+      console.error('[EMAIL] Connection Error:', error);
+      console.warn('[EMAIL] TIP: If using Gmail, ensure 2-Step Verification is ON and you are using an App Password.');
+      transporter = null; // Disable if verification fails
+    } else {
+      console.log(`[EMAIL] System ready to send alerts from ${EMAIL_USER} to ${TARGET_EMAIL}`);
+    }
+  });
+} else {
+  console.warn('[EMAIL] WARNING: EMAIL_USER or EMAIL_PASS not set. Email alerts disabled.');
+}
+
+async function sendEmailAlert(dateStr, result) {
+  if (!transporter) return;
+
+  const mailOptions = {
+    from: `"PCC Ticket Watcher" <${EMAIL_USER}>`,
+    to: TARGET_EMAIL,
+    subject: `🎟️ TICKETS FOUND: ${dateStr}`,
+    html: `
+      <h2>Tickets Available for ${dateStr}!</h2>
+      <p><strong>Status:</strong> ${result.status}</p>
+      <p><strong>Message:</strong> ${result.message}</p>
+      <p><strong>Party Size Checked:</strong> ${result.partySize || 'N/A'}</p>
+      <br/>
+      <a href="${result.url}" style="background-color: #0f766e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Book Now</a>
+      <p><small>Checking URL: ${result.url}</small></p>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] Sent alert for ${dateStr}`);
+  } catch (error) {
+    console.error(`[EMAIL] Failed to send email for ${dateStr}:`, error);
+  }
+}
+
 // --- CACHE STORE ---
-// Format: { '12/25/2025': { data: ResultObject, timestamp: 123456789, partySize: 6 } }
+// Format: { '12/25/2025': { data: ResultObject, timestamp: 123456789, partySize: 6, notified: boolean } }
 const cache = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 Minutes
 
@@ -61,7 +145,8 @@ async function scrapeDate(dateStr, partySize) {
     message: 'Initializing...',
     ticketsLeft: undefined,
     timestamp: Date.now(),
-    url: targetUrl
+    url: targetUrl,
+    partySize: partySize
   };
 
   try {
@@ -114,7 +199,7 @@ async function scrapeDate(dateStr, partySize) {
   return result;
 }
 
-// --- API ENDPOINT ---
+// --- API ENDPOINT: CHECK ---
 app.get('/api/check', async (req, res) => {
   const { date, partySize } = req.query;
 
@@ -145,10 +230,41 @@ app.get('/api/check', async (req, res) => {
   cache[date] = {
     data: data,
     timestamp: Date.now(),
-    partySize: pSize // Store this to use in background refresh
+    partySize: pSize,
+    notified: cache[date] ? cache[date].notified : false 
   };
 
   res.json(data);
+});
+
+// --- API ENDPOINT: TEST EMAIL ---
+app.get('/api/test-email', async (req, res) => {
+  if (!transporter) {
+    return res.status(503).json({ error: 'Email configuration missing or invalid on server.' });
+  }
+  
+  try {
+    await transporter.sendMail({
+      from: `"PCC Ticket Watcher" <${EMAIL_USER}>`,
+      to: TARGET_EMAIL,
+      subject: "🔔 PCC Watcher: Test Email",
+      text: "This is a test email from your ticket watcher server. If you are reading this, your email configuration is working correctly!",
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <h2 style="color: #0f766e;">Configuration Success! ✅</h2>
+          <p>This is a test email from your <strong>PCC Ticket Watcher</strong>.</p>
+          <p>The server is successfully authenticated as <code>${EMAIL_USER}</code>.</p>
+          <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e7eb;" />
+          <p style="font-size: 12px; color: #6b7280;">You will receive future alerts at this address when tickets are found.</p>
+        </div>
+      `
+    });
+    console.log(`[EMAIL] Test email sent to ${TARGET_EMAIL}`);
+    res.json({ success: true, message: `Test email sent to ${TARGET_EMAIL}` });
+  } catch (error) {
+    console.error("Test email failed:", error);
+    res.status(500).json({ error: error.message || "Failed to send email" });
+  }
 });
 
 // --- BACKGROUND JOB (Every 5 Minutes) ---
@@ -161,12 +277,26 @@ setInterval(async () => {
     // We reuse the last partySize requested for this date
     const newData = await scrapeDate(date, entry.partySize || 1);
     
+    const isAvailable = newData.status === 'AVAILABLE' || newData.status === 'LIMITED_HIGH';
+    const hasAlreadyNotified = entry.notified || false;
+
+    // Email Logic
+    let shouldNotify = false;
+    if (isAvailable && !hasAlreadyNotified) {
+      shouldNotify = true;
+      await sendEmailAlert(date, newData);
+    }
+
     cache[date] = {
       data: newData,
       timestamp: Date.now(),
-      partySize: entry.partySize
+      partySize: entry.partySize,
+      // If we just notified, set true. If it was already true and still available, keep true.
+      // If it's no longer available, reset to false.
+      notified: isAvailable ? (shouldNotify || hasAlreadyNotified) : false
     };
-    console.log(`[REFRESHED] ${date} - ${newData.status}`);
+    
+    console.log(`[REFRESHED] ${date} - ${newData.status} (Email sent: ${shouldNotify})`);
   }
 }, CACHE_DURATION); // Run every 5 minutes
 
@@ -181,7 +311,8 @@ async function prewarmCache() {
        cache[date] = {
          data: data,
          timestamp: Date.now(),
-         partySize: PREWARM_CONFIG.PARTY_SIZE
+         partySize: PREWARM_CONFIG.PARTY_SIZE,
+         notified: false
        };
        console.log(`[PRE-WARM] Loaded ${date}: ${data.status}`);
     });
@@ -195,5 +326,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Test email endpoint: http://localhost:${PORT}/api/test-email`);
   prewarmCache();
 });
