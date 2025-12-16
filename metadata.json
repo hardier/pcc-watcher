@@ -1,0 +1,5 @@
+{
+  "name": "Polynesian Ticket Watcher",
+  "description": "Automated availability checker for PCC Super Ambassador packages.",
+  "requestFramePermissions": []
+}
