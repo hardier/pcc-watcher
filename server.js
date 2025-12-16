@@ -24,10 +24,32 @@ const PATTERNS = {
   LIMITED_GENERAL: /Limited Availability! Book Now!/i
 };
 
+// Default configuration to pre-warm cache
+const PREWARM_CONFIG = {
+  START: '2025-12-25',
+  END: '2025-12-29',
+  PARTY_SIZE: 6
+};
+
 // --- CACHE STORE ---
-// Format: { '12/25/2025': { data: ResultObject, timestamp: 123456789 } }
+// Format: { '12/25/2025': { data: ResultObject, timestamp: 123456789, partySize: 6 } }
 const cache = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 Minutes
+
+// --- HELPERS ---
+function getDatesInRange(startDate, endDate) {
+  const dates = [];
+  let currentDate = new Date(startDate + 'T00:00:00');
+  const stopDate = new Date(endDate + 'T00:00:00');
+  while (currentDate <= stopDate) {
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const year = currentDate.getFullYear();
+    dates.push(`${month}/${day}/${year}`);
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  return dates;
+}
 
 // --- SCRAPING LOGIC ---
 async function scrapeDate(dateStr, partySize) {
@@ -148,6 +170,24 @@ setInterval(async () => {
   }
 }, CACHE_DURATION); // Run every 5 minutes
 
+// --- PRE-WARM CACHE ON START ---
+async function prewarmCache() {
+  console.log('--- PRE-WARMING CACHE ---');
+  const dates = getDatesInRange(PREWARM_CONFIG.START, PREWARM_CONFIG.END);
+  
+  for (const date of dates) {
+    // Trigger a scrape without waiting for it, letting the promise resolve in background
+    scrapeDate(date, PREWARM_CONFIG.PARTY_SIZE).then(data => {
+       cache[date] = {
+         data: data,
+         timestamp: Date.now(),
+         partySize: PREWARM_CONFIG.PARTY_SIZE
+       };
+       console.log(`[PRE-WARM] Loaded ${date}: ${data.status}`);
+    });
+  }
+}
+
 // Handle React Routing (return index.html for unknown routes)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
@@ -155,4 +195,5 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  prewarmCache();
 });

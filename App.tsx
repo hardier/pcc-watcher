@@ -4,7 +4,7 @@ import { checkDateAvailability } from './services/scraperService';
 import { requestNotificationPermission, sendNotification } from './services/notificationService';
 import { DEFAULT_CONFIG } from './constants';
 import StatusCard from './components/StatusCard';
-import { PlayIcon, StopIcon, Cog6ToothIcon } from '@heroicons/react/24/solid';
+import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
 const App: React.FC = () => {
   // Config State
@@ -15,7 +15,7 @@ const App: React.FC = () => {
   });
 
   // App State
-  const [isRunning, setIsRunning] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
   const [results, setResults] = useState<DateCheckResult[]>([]);
   const [lastCheckTime, setLastCheckTime] = useState<string>('-');
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -38,39 +38,26 @@ const App: React.FC = () => {
     return dateArray;
   };
 
-  // Initialize Results List
-  useEffect(() => {
+  /**
+   * Main Check Logic
+   * @param notifyIfSuccess If true, sends desktop notification on success.
+   */
+  const runCheckCycle = useCallback(async (notifyIfSuccess: boolean = false) => {
     const dates = getDatesToCheck(config.startDate, config.endDate);
-    const initialResults: DateCheckResult[] = dates.map(dateStr => ({
-      dateStr,
-      status: AvailabilityStatus.IDLE,
-      message: 'Waiting to start...',
-      timestamp: Date.now(),
-      url: ''
-    }));
-    setResults(initialResults);
-  }, [config.startDate, config.endDate]);
-
-  const runCheckCycle = useCallback(async () => {
     setLastCheckTime(new Date().toLocaleTimeString());
-    
-    const dates = getDatesToCheck(config.startDate, config.endDate);
-    
-    // Process one by one to avoid rate limiting or overwhelming the proxy
-    for (const dateStr of dates) {
-      // Set status to checking
-      setResults(prev => prev.map(r => 
-        r.dateStr === dateStr ? { ...r, status: AvailabilityStatus.CHECKING, message: 'Checking...' } : r
-      ));
 
+    // NOTE: We don't map results to "CHECKING" here because we want to preserve 
+    // the previous state while the background refresh happens, unless it's the very first load.
+    
+    for (const dateStr of dates) {
       // Perform check
       const result = await checkDateAvailability(dateStr, config.partySize);
       
-      // Update result
+      // Update result state immediately
       setResults(prev => prev.map(r => r.dateStr === dateStr ? result : r));
 
-      // Notify if success
-      if (result.status === AvailabilityStatus.AVAILABLE || result.status === AvailabilityStatus.LIMITED_HIGH) {
+      // Notify if requested (Monitoring mode)
+      if (notifyIfSuccess && (result.status === AvailabilityStatus.AVAILABLE || result.status === AvailabilityStatus.LIMITED_HIGH)) {
         sendNotification(
           "Tickets Found!", 
           `${result.message} for ${dateStr}`, 
@@ -78,38 +65,60 @@ const App: React.FC = () => {
         );
       }
 
-      // Small delay between requests to be polite
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Small delay between requests
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
   }, [config.startDate, config.endDate, config.partySize]);
 
-  const toggleMonitoring = async () => {
-    if (isRunning) {
-      setIsRunning(false);
+  // --- Effect: Auto-Fetch on Mount or Config Change ---
+  useEffect(() => {
+    const dates = getDatesToCheck(config.startDate, config.endDate);
+    
+    // 1. Initialize empty/loading state immediately
+    setResults(dates.map(dateStr => ({
+      dateStr,
+      status: AvailabilityStatus.CHECKING,
+      message: 'Loading data...',
+      timestamp: Date.now(),
+      url: ''
+    })));
+
+    // 2. Fetch data (without notifications)
+    runCheckCycle(false);
+
+  }, [config.startDate, config.endDate, config.partySize]); // Only re-run if dates change
+
+  // --- Effect: Monitoring Loop ---
+  useEffect(() => {
+    if (isMonitoring) {
+      // Run immediately when enabled
+      runCheckCycle(true);
+      
+      // Setup interval (e.g. every 60s)
+      intervalRef.current = setInterval(() => {
+        runCheckCycle(true);
+      }, 60000);
+    } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
-    } else {
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isMonitoring, runCheckCycle]);
+
+  const toggleMonitoring = async () => {
+    if (!isMonitoring) {
       const hasPermission = await requestNotificationPermission();
       if (!hasPermission) {
         alert("Please enable notifications to receive alerts when tickets are found.");
       }
-      
-      setIsRunning(true);
-      // Run immediately
-      runCheckCycle();
-      // Then run every 60 seconds
-      intervalRef.current = setInterval(runCheckCycle, 60000);
     }
+    setIsMonitoring(!isMonitoring);
   };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
@@ -122,7 +131,7 @@ const App: React.FC = () => {
           </div>
           <div className="text-right hidden sm:block">
              <p className="text-xs text-teal-200">Last Check: {lastCheckTime}</p>
-             <p className="text-xs text-teal-200">Status: {isRunning ? 'Running' : 'Stopped'}</p>
+             <p className="text-xs text-teal-200">Server: Active (5m Refresh)</p>
           </div>
         </div>
       </header>
@@ -138,20 +147,18 @@ const App: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">Start Date</label>
                 <input 
                   type="date" 
-                  disabled={isRunning}
                   value={config.startDate}
                   onChange={(e) => setConfig({...config, startDate: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase">End Date</label>
                 <input 
                   type="date" 
-                  disabled={isRunning}
                   value={config.endDate}
                   onChange={(e) => setConfig({...config, endDate: e.target.value})}
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
               </div>
             </div>
@@ -161,37 +168,48 @@ const App: React.FC = () => {
                 <input 
                   type="number" 
                   min={1}
-                  disabled={isRunning}
                   value={config.partySize}
                   onChange={(e) => setConfig({...config, partySize: parseInt(e.target.value) || 1})}
-                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50"
+                  className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                 />
             </div>
 
             <button
               onClick={toggleMonitoring}
               className={`w-full md:w-auto flex items-center justify-center space-x-2 px-6 py-2.5 rounded-lg font-bold text-white transition-colors shadow-md ${
-                isRunning 
-                  ? 'bg-red-500 hover:bg-red-600' 
+                isMonitoring 
+                  ? 'bg-slate-500 hover:bg-slate-600' 
                   : 'bg-teal-600 hover:bg-teal-700'
               }`}
             >
-              {isRunning ? <StopIcon className="w-5 h-5"/> : <PlayIcon className="w-5 h-5"/>}
-              <span>{isRunning ? 'Stop Monitor' : 'Start Monitor'}</span>
+              {isMonitoring ? <BellSlashIcon className="w-5 h-5"/> : <BellAlertIcon className="w-5 h-5"/>}
+              <span>{isMonitoring ? 'Stop Alerts' : 'Notify Me'}</span>
             </button>
           </div>
           
-          <div className="mt-4 text-xs text-gray-400 flex items-center gap-1">
-             <Cog6ToothIcon className="w-3 h-3"/>
-             <span>Uses CORS proxy to scrape polynesia.com directly from browser. Check runs every 60s.</span>
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-gray-400 gap-2">
+             <div className="flex items-center gap-1">
+               <Cog6ToothIcon className="w-3 h-3"/>
+               <span>Server automatically refreshes status every 5 minutes.</span>
+             </div>
+             <button 
+                onClick={() => runCheckCycle(false)} 
+                className="flex items-center gap-1 hover:text-teal-600 transition-colors"
+             >
+                <ArrowPathIcon className="w-3 h-3" />
+                <span>Force Refresh Now</span>
+             </button>
           </div>
         </div>
 
         {/* Results Grid */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">Availability Status</h2>
+          <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 flex justify-between">
+            <span>Availability Status</span>
+            {isMonitoring && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Monitoring for changes...</span>}
+          </h2>
           {results.length === 0 ? (
-             <div className="text-center py-10 text-gray-400 italic">Configure dates above to begin.</div>
+             <div className="text-center py-10 text-gray-400 italic">Select dates to view availability.</div>
           ) : (
             <div className="grid gap-4">
               {results.map((result) => (
