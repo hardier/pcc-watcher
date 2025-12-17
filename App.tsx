@@ -57,20 +57,12 @@ const App: React.FC = () => {
     try {
        const res = await fetch('/api/test-email');
        const contentType = res.headers.get("content-type");
-       
-       // Handle case where Vercel returns HTML (like a 404 page) instead of JSON
-       if (contentType && contentType.indexOf("application/json") === -1) {
-         const text = await res.text();
-         console.error("Non-JSON Response from server:", text);
-         throw new Error(`Server returned HTML instead of JSON (Status: ${res.status}). This usually means the API route is not correctly configured on Vercel.`);
-       }
-
+       if (contentType && contentType.indexOf("application/json") === -1) throw new Error("Server error");
        const data = await res.json();
        if (res.ok) alert("✅ Success: " + data.message);
-       else alert("❌ Server Error: " + (data.error || "Unknown error"));
+       else alert("❌ Error: " + data.error);
     } catch (e: any) {
-      console.error(e);
-      alert("❌ Request Failed: " + (e.message || "Network Error. Check console for details."));
+      alert("❌ Request Failed: " + (e.message || "Network Error"));
     }
   };
 
