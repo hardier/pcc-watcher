@@ -71,17 +71,26 @@ const App: React.FC = () => {
   }, [config.startDate, config.endDate, config.partySize]);
 
   const testEmailConfig = async () => {
-    // Simple feedback mechanism
     try {
        const res = await fetch('/api/test-email');
+       
+       // Check for common deployment issue: Static host returning HTML 404 for API route
+       const contentType = res.headers.get("content-type");
+       if (contentType && contentType.indexOf("application/json") === -1) {
+         const text = await res.text();
+         console.error("Non-JSON Response:", text);
+         throw new Error("Server returned non-JSON response. If deployed on Vercel/Netlify, ensure you are using a Node.js runtime, not just static hosting.");
+       }
+
        const data = await res.json();
        if (res.ok) {
          alert("✅ Success: " + data.message);
        } else {
-         alert("❌ Error: " + (data.error || "Failed to send email. Check server console."));
+         alert("❌ Server Error: " + (data.error || "Failed to send email."));
        }
-    } catch (e) {
-      alert("❌ Network Error: Could not reach server to test email.");
+    } catch (e: any) {
+      console.error(e);
+      alert("❌ Request Failed: " + (e.message || "Network Error. Ensure backend server is running."));
     }
   };
 
