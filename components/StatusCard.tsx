@@ -45,7 +45,15 @@ const StatusCard: React.FC<StatusCardProps> = ({ result }) => {
         <div className="flex items-center space-x-3">
           {getIcon(result.status)}
           <div>
-            <h3 className="font-bold text-lg">{result.dateStr}</h3>
+            <a 
+              href={result.url} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="group flex items-center space-x-1 hover:underline underline-offset-4"
+            >
+              <h3 className="font-bold text-lg">{result.dateStr}</h3>
+              <ArrowTopRightOnSquareIcon className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
+            </a>
             <p className="text-sm font-medium mt-1">{result.message}</p>
             <p className="text-xs opacity-60 mt-1">Last Checked: {new Date(result.timestamp).toLocaleTimeString()}</p>
           </div>
@@ -56,7 +64,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ result }) => {
             href={result.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center space-x-1 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-2 px-4 border border-gray-300 rounded shadow text-sm"
+            className="flex items-center space-x-1 bg-white hover:bg-gray-50 text-gray-800 font-semibold py-2 px-4 border border-gray-300 rounded shadow text-sm transition-colors"
           >
             <span>Book Now</span>
             <ArrowTopRightOnSquareIcon className="w-4 h-4" />

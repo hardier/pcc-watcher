@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DateCheckResult, AvailabilityStatus, CheckConfiguration } from './types';
 import { checkDateAvailability } from './services/scraperService';
 import { requestNotificationPermission, sendNotification } from './services/notificationService';
-import { DEFAULT_CONFIG } from './constants';
+import { DEFAULT_CONFIG, BASE_URL } from './constants';
 import StatusCard from './components/StatusCard';
 import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon, EnvelopeIcon } from '@heroicons/react/24/solid';
 
@@ -98,13 +98,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const dates = getDatesToCheck(config.startDate, config.endDate);
     
-    // 1. Initialize empty/loading state immediately
+    // 1. Initialize empty/loading state immediately with correct URLs
     setResults(dates.map(dateStr => ({
       dateStr,
       status: AvailabilityStatus.CHECKING,
       message: 'Loading data...',
       timestamp: Date.now(),
-      url: ''
+      url: `${BASE_URL}${dateStr}`
     })));
 
     // 2. Fetch data (without notifications)
