@@ -4,7 +4,7 @@ import { checkDateAvailability } from './services/scraperService';
 import { requestNotificationPermission, sendNotification } from './services/notificationService';
 import { DEFAULT_CONFIG, BASE_URL } from './constants';
 import StatusCard from './components/StatusCard';
-import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon, EnvelopeIcon, UserIcon, FaceSmileIcon, ArrowTopRightOnSquareIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
+import { BellAlertIcon, BellSlashIcon, ArrowPathIcon, EnvelopeIcon, UserIcon, FaceSmileIcon, ArrowTopRightOnSquareIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<CheckConfiguration>({
@@ -78,7 +78,7 @@ const App: React.FC = () => {
       children: config.children
     })));
     runCheckCycle(false);
-  }, [config.startDate, config.endDate, config.adults, config.children]);
+  }, [config.startDate, config.endDate, config.adults, config.children, runCheckCycle]);
 
   useEffect(() => {
     if (isMonitoring) {
