@@ -4,7 +4,7 @@ import { checkDateAvailability } from './services/scraperService';
 import { requestNotificationPermission, sendNotification } from './services/notificationService';
 import { DEFAULT_CONFIG, BASE_URL } from './constants';
 import StatusCard from './components/StatusCard';
-import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon, EnvelopeIcon, UserIcon, FaceSmileIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
+import { BellAlertIcon, BellSlashIcon, Cog6ToothIcon, ArrowPathIcon, EnvelopeIcon, UserIcon, FaceSmileIcon, ArrowTopRightOnSquareIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 
 const App: React.FC = () => {
   const [config, setConfig] = useState<CheckConfiguration>({
@@ -44,8 +44,8 @@ const App: React.FC = () => {
 
       if (notifyIfSuccess && result.status === AvailabilityStatus.AVAILABLE) {
         sendNotification(
-          "Real-time Tickets Found!", 
-          `PCC has tickets for ${dateStr} (${config.adults} Ad, ${config.children} Ch)`, 
+          "Tickets Found!", 
+          `PCC has availability for ${dateStr}!`, 
           result.url
         );
       }
@@ -71,7 +71,7 @@ const App: React.FC = () => {
     setResults(dates.map(dateStr => ({
       dateStr,
       status: AvailabilityStatus.CHECKING,
-      message: 'Initial check...',
+      message: 'Checking availability...',
       timestamp: Date.now(),
       url: `${BASE_URL}&DateVisited=${dateStr}&Qty1=${config.adults}&Qty2=${config.children}`,
       adults: config.adults,
@@ -104,7 +104,7 @@ const App: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight">PCC Real-time Watcher</h1>
+              <h1 className="text-2xl font-bold tracking-tight">PCC Availability Watcher</h1>
               <a 
                 href={BASE_URL} 
                 target="_blank" 
@@ -115,10 +115,10 @@ const App: React.FC = () => {
                 <ArrowTopRightOnSquareIcon className="w-5 h-5" />
               </a>
             </div>
-            <p className="text-teal-100 text-sm">Direct Ticketing System Monitor</p>
+            <p className="text-teal-100 text-sm">Super Ambassador Package Monitor</p>
           </div>
           <div className="text-right hidden sm:block">
-             <p className="text-xs text-teal-200">Last Sync: {lastCheckTime}</p>
+             <p className="text-xs text-teal-200">Last Checked: {lastCheckTime}</p>
           </div>
         </div>
       </header>
@@ -127,25 +127,24 @@ const App: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="md:col-span-1">
-              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Start</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Start Date</label>
               <input type="date" value={config.startDate} onChange={(e) => setConfig({...config, startDate: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
             </div>
             <div className="md:col-span-1">
-              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">End</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">End Date</label>
               <input type="date" value={config.endDate} onChange={(e) => setConfig({...config, endDate: e.target.value})} className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
             </div>
-            <div className="md:col-span-1 grid grid-cols-2 gap-2">
-              <div>
-                <label className="flex items-center text-xs font-bold text-gray-500 mb-1 uppercase">
-                  <UserIcon className="w-3 h-3 mr-1"/> Ad
-                </label>
-                <input type="number" min={0} value={config.adults} onChange={(e) => setConfig({...config, adults: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
-              </div>
-              <div>
-                <label className="flex items-center text-xs font-bold text-gray-500 mb-1 uppercase">
-                  <FaceSmileIcon className="w-3 h-3 mr-1"/> Ch
-                </label>
-                <input type="number" min={0} value={config.children} onChange={(e) => setConfig({...config, children: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 border border-slate-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none" />
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tickets to check</label>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <UserIcon className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <input type="number" min={1} value={config.adults} onChange={(e) => setConfig({...config, adults: parseInt(e.target.value) || 1})} className="w-full bg-slate-50 border border-slate-300 rounded pl-7 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Adults" />
+                </div>
+                <div className="flex-1 relative">
+                  <FaceSmileIcon className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <input type="number" min={0} value={config.children} onChange={(e) => setConfig({...config, children: parseInt(e.target.value) || 0})} className="w-full bg-slate-50 border border-slate-300 rounded pl-7 pr-3 py-2 text-sm focus:ring-2 focus:ring-teal-500 outline-none" placeholder="Kids" />
+                </div>
               </div>
             </div>
             <button onClick={toggleMonitoring} className={`flex items-center justify-center space-x-2 px-6 py-2.5 rounded-lg font-bold text-white transition-colors shadow-md ${isMonitoring ? 'bg-slate-500 hover:bg-slate-600' : 'bg-teal-600 hover:bg-teal-700'}`}>
@@ -154,35 +153,31 @@ const App: React.FC = () => {
             </button>
           </div>
           
-          <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-gray-400 gap-3">
+          <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center text-xs text-gray-400 gap-3 border-t pt-4">
              <div className="flex flex-col gap-1">
-               <div className="flex items-center gap-1">
-                 <Cog6ToothIcon className="w-3 h-3"/>
-                 <span>Checking Bundle 101 (Super Ambassador)</span>
-               </div>
-               <div className="flex items-center gap-1">
-                 <ArrowTopRightOnSquareIcon className="w-3 h-3 text-teal-600"/>
-                 <a href={BASE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-teal-600 underline">Official Ticketing Page</a>
+               <div className="flex items-center gap-1.5 text-teal-700 font-medium">
+                 <InformationCircleIcon className="w-4 h-4"/>
+                 <span>Currently checking if any tickets are available (min: {config.adults + config.children})</span>
                </div>
              </div>
              <div className="flex space-x-4 w-full sm:w-auto justify-end">
                 <button onClick={testEmailConfig} className="flex items-center gap-1 hover:text-teal-600 transition-colors"><EnvelopeIcon className="w-3 h-3" /> Test Mail</button>
-                <button onClick={() => runCheckCycle(false)} className="flex items-center gap-1 hover:text-teal-600 transition-colors"><ArrowPathIcon className="w-3 h-3" /> Refresh</button>
+                <button onClick={() => runCheckCycle(false)} className="flex items-center gap-1 hover:text-teal-600 transition-colors"><ArrowPathIcon className="w-3 h-3" /> Refresh Now</button>
              </div>
           </div>
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 flex justify-between">
-            <span>Live Availability</span>
-            {isMonitoring && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full animate-pulse font-medium">Monitoring active</span>}
+          <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 flex justify-between items-center">
+            <span>Availability Calendar</span>
+            {isMonitoring && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full animate-pulse font-bold uppercase tracking-wider border border-green-200">Live Monitoring</span>}
           </h2>
           {results.length === 0 ? (
             <div className="text-center py-10 text-gray-400 bg-white rounded-xl border border-dashed border-slate-300">
-              No dates selected.
+              Please select a date range above.
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-3">
               {results.map((result) => (
                 <StatusCard key={result.dateStr} result={result} />
               ))}
@@ -190,6 +185,11 @@ const App: React.FC = () => {
           )}
         </div>
       </main>
+      
+      <footer className="max-w-4xl mx-auto px-4 py-8 text-center text-slate-400 text-xs">
+        <p>This tool monitors the official Polynesian Cultural Center ticketing system for the Super Ambassador package.</p>
+        <p className="mt-1">Automated checks occur every 2 minutes when "Notify Me" is active.</p>
+      </footer>
     </div>
   );
 };
